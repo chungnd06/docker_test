@@ -1,37 +1,27 @@
-version: '2'
-services:
-  application:
-    image: euclid1990/ubuntu-server
-    volumes:
-      - ./blog:/var/www/html/blog
-  mariadb:
-    image: mariadb
-    ports:
-      - "3696:3306"
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: mydb
-      MYSQL_USER: guest
-      MYSQL_PASSWORD: 123456Aa@
-    volumes:
-      - ./mariadb:/var/lib/mysql
-  php:
-    image: php:7.2-fpm
-    ports:
-      - "9696:9000"
-    volumes_from:
-      - application
-    links:
-      - mariadb:mysql
-    tty: true
-  nginx:
-    image: nginx
-    ports:
-      - "8696:80"
-    links:
-      - php
-    volumes_from:
-      - application
-    volumes:
-      - ./logs/nginx/:/var/log/nginx
-      - ./nginx_conf:/etc/nginx/conf.d
+# Builder image chungnd06/node:10-builder 
+FROM node:10-alpine 
+ 
+WORKDIR /app 
+ 
+RUN apk --no-cache add \ 
+    g++ make python git \ 
+    && yarn global add node-gyp \ 
+    && rm -rf /var/cache/apk/* 
+ 
+ONBUILD ADD package.json yarn.lock /app/ 
+ONBUILD RUN yarn --pure-lockfile 
+# Runtime image chungnd06/node:10-runtime 
+FROM node:10-alpine 
+ 
+EXPOSE 3000 
+WORKDIR /app 
+ 
+ONBUILD COPY --from=builder /app . 
+ONBUILD ADD . /app 
+ONBUILD RUN yarn build 
+ 
+CMD ["yarn", "docker:start"] 
+# Project image 
+FROM chungnd06/node:10-builder AS builder 
+ 
+FROM chungnd06/node:10-runtime
